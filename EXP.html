@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Virtuelles Labor: Metallhydroxide & Säuren</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel für JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Custom Animationen */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        body {
+            background-color: #f8fafc; /* slate-50 */
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Custom Scrollbar for Table */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px; /* Etwas dünner für Mobile */
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- ICONS ---
+        const Droplet = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22a7 7 0 0 0 7-7c0-2-2-3-2-3s-2.857-4-5-8c-2.143 4-5 8-5 8s-2 1-2 3a7 7 0 0 0 7 7z"/></svg>
+        );
+        const Check = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"/></svg>
+        );
+        const RefreshCw = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        );
+        const FlaskConical = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>
+        );
+        const BookOpen = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        );
+
+        // --- DATEN ---
+        // Stoffliste mit bottleLabel für getrennte Schreibweise auf den Flaschen
+        const allSubstances = [
+            // Neutrale / Salze
+            { id: 'h2o', name: 'Wasser', bottleLabel: 'Wasser', type: 'neutral', category: 'Neutral', formula: 'H₂O', cation: '-', anion: '-', color: 'bg-green-400', inTable: true },
+            { id: 'nacl', name: 'Natriumchlorid', bottleLabel: 'Natrium-chlorid', type: 'neutral', category: 'Neutral', formula: 'NaCl', cation: 'Na⁺', anion: 'Cl⁻', color: 'bg-green-400', inTable: true },
+            
+            // Basen
+            { id: 'naoh', name: 'Natriumhydroxid', bottleLabel: 'Natrium-hydroxid', type: 'base', category: 'Base', formula: 'NaOH', cation: 'Na⁺', anion: 'OH⁻', color: 'bg-blue-600', inTable: true },
+            { id: 'caoh2', name: 'Calciumhydroxid', bottleLabel: 'Calcium-hydroxid', type: 'base', category: 'Base', formula: 'Ca(OH)₂', cation: 'Ca²⁺', anion: 'OH⁻', color: 'bg-blue-600', inTable: true },
+            { id: 'koh', name: 'Kaliumhydroxid', bottleLabel: 'Kalium-hydroxid', type: 'base', category: 'Base', formula: 'KOH', cation: 'K⁺', anion: 'OH⁻', color: 'bg-blue-600', inTable: true },
+            
+            // Zusätzliche Stoffe
+            { id: 'nh3', name: 'Ammoniak', bottleLabel: 'Ammoniak', type: 'base', category: 'Base', formula: 'NH₃(aq)', cation: 'NH₄⁺', anion: 'OH⁻', color: 'bg-blue-600', inTable: false },
+            { id: 'hcl', name: 'Salzsäure', bottleLabel: 'Salzsäure', type: 'acid', category: 'Säure', formula: 'HCl', cation: 'H⁺', anion: 'Cl⁻', color: 'bg-red-500', inTable: false },
+            { id: 'h2so4', name: 'Schwefelsäure', bottleLabel: 'Schwefel-säure', type: 'acid', category: 'Säure', formula: 'H₂SO₄', cation: 'H⁺', anion: 'SO₄²⁻', color: 'bg-red-500', inTable: false },
+            { id: 'h3po4', name: 'Phosphorsäure', bottleLabel: 'Phosphor-säure', type: 'acid', category: 'Säure', formula: 'H₃PO₄', cation: 'H⁺', anion: 'PO₄³⁻', color: 'bg-red-500', inTable: false },
+            { id: 'ch3cooh', name: 'Essigsäure', bottleLabel: 'Essigsäure', type: 'acid', category: 'Säure', formula: 'CH₃COOH', cation: 'H⁺', anion: 'CH₃COO⁻', color: 'bg-orange-500', inTable: false }
+        ];
+
+        // Nur die Stoffe für die Tabelle filtern
+        const tableSubstances = allSubstances.filter(s => s.inTable);
+
+        // Optionen für Dropdowns generieren
+        const getUniqueOptions = (key) => {
+            const options = Array.from(new Set(allSubstances.map(s => s[key]).filter(v => v !== '-' && v !== '')));
+            options.sort();
+            return ['-', ...options];
+        };
+        
+        const formulaOptions = getUniqueOptions('formula');
+        const cationOptions = getUniqueOptions('cation');
+        const anionOptions = getUniqueOptions('anion');
+
+        // --- COMPONENTS ---
+        
+        // Flaschen-Komponente - Neutrales Design
+        const ChemicalBottle = ({ substance, isSelected, onClick, isUsed }) => {
+            const capColor = 'bg-slate-700'; 
+            const liquidColor = 'bg-sky-50/50'; 
+
+            return (
+                <button
+                    onClick={onClick}
+                    className={`group relative flex flex-col items-center transition-all duration-200 
+                        ${isSelected ? 'scale-110 z-10 drop-shadow-xl' : 'scale-100 opacity-90 hover:opacity-100'}
+                        /* Mobile touch target size optimization */
+                        w-16 md:w-20
+                    `}
+                >
+                    {/* Bottle Cap */}
+                    <div className={`w-6 md:w-8 h-3 md:h-4 rounded-t-sm ${capColor} shadow-sm z-10 mx-auto`}></div>
+                    <div className="w-4 md:w-6 h-1 bg-black/20 z-10 mx-auto"></div>
+                    
+                    {/* Bottle Neck */}
+                    <div className="w-4 md:w-6 h-2 md:h-3 bg-white/40 border-x border-slate-300 backdrop-blur-sm mx-auto relative z-0"></div>
+                    
+                    {/* Bottle Body */}
+                    <div className={`w-16 md:w-20 h-20 md:h-24 rounded-lg border border-slate-300 shadow-md flex flex-col items-center justify-center p-0.5 md:p-1 bg-white/80 relative overflow-hidden backdrop-blur-sm
+                         ${isSelected ? 'ring-2 ring-blue-400 ring-offset-2' : ''}
+                    `}>
+                        {/* Liquid Effect */}
+                        <div className={`absolute bottom-0 left-0 right-0 h-16 md:h-20 ${liquidColor} rounded-b-lg border-t border-white/50`}></div>
+                        
+                        {/* Label - Improved for readability with hyphenation */}
+                        <div className={`relative w-[90%] min-h-[36px] md:min-h-[40px] rounded border border-slate-200 flex items-center justify-center p-0.5 md:p-1 shadow-sm bg-white z-10`}>
+                             <span className="text-[9px] md:text-[10px] font-bold text-center leading-tight break-words w-full text-slate-800">
+                                {substance.bottleLabel}
+                             </span>
+                        </div>
+                        
+                        {/* Formula Badge on Bottle */}
+                        <div className="mt-1 md:mt-2 z-10 px-1 md:px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-mono font-bold bg-white/90 border border-slate-200 text-slate-500 shadow-sm">
+                           {substance.formula}
+                        </div>
+                    </div>
+
+                    {/* Checkmark if used */}
+                    {isUsed && (
+                        <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full p-0.5 shadow-md border border-white z-20">
+                            <Check className="w-3 h-3" />
+                        </div>
+                    )}
+                </button>
+            );
+        };
+
+        // --- HAUPTKOMPONENTE ---
+        function App() {
+            // State
+            const [wells, setWells] = useState(Array(6).fill({ substanceId: null, hasIndicator: false }));
+            const [selectedTool, setSelectedTool] = useState(null); 
+            
+            const [tableInputs, setTableInputs] = useState(
+                tableSubstances.map(s => ({ formula: '', cation: '', anion: '', color: '' }))
+            );
+            
+            const [answers, setAnswers] = useState({ q1: '', q2: '', q3: '' });
+            const [showFeedback, setShowFeedback] = useState(false);
+
+            // Handlers
+            const handleToolClick = (type, id) => {
+                if (selectedTool?.type === type && selectedTool?.id === id) {
+                    setSelectedTool(null);
+                } else {
+                    setSelectedTool({ type, id });
+                }
+            };
+
+            const handleWellClick = (index) => {
+                if (!selectedTool) return;
+
+                const newWells = [...wells];
+                const currentWell = newWells[index];
+
+                if (selectedTool.type === 'substance') {
+                    if (currentWell.substanceId) {
+                        alert("Diese Mulde ist gefüllt. Setze zurück oder wähle eine leere.");
+                        return;
+                    }
+                    newWells[index] = { ...currentWell, substanceId: selectedTool.id };
+                } else if (selectedTool.type === 'indicator') {
+                    if (!currentWell.substanceId) {
+                        alert("Fülle zuerst eine Chemikalie ein.");
+                        return;
+                    }
+                    if (currentWell.hasIndicator) return;
+                    newWells[index] = { ...currentWell, hasIndicator: true };
+                }
+
+                setWells(newWells);
+            };
+
+            const resetExperiment = () => {
+                setWells(Array(6).fill({ substanceId: null, hasIndicator: false }));
+                setSelectedTool(null);
+            };
+
+            const getWellColor = (well) => {
+                if (!well.substanceId) return 'bg-gray-100'; 
+                if (!well.hasIndicator) return 'bg-sky-50'; 
+                
+                const sub = allSubstances.find(s => s.id === well.substanceId);
+                return sub ? sub.color : 'bg-gray-200';
+            };
+
+            const groupedSubstances = {
+                'Neutrale / Salze': allSubstances.filter(s => s.type === 'neutral'),
+                'Basen': allSubstances.filter(s => s.type === 'base'),
+                'Säuren': allSubstances.filter(s => s.type === 'acid')
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 font-sans text-slate-800 p-2 md:p-8">
+                    <div className="max-w-7xl mx-auto space-y-4 md:space-y-8">
+                        
+                        {/* Header */}
+                        <header className="bg-white rounded-xl shadow-sm p-4 md:p-6 border-l-4 md:border-l-8 border-blue-500">
+                            <h1 className="text-lg md:text-3xl font-bold text-slate-900 mb-1 md:mb-2">
+                                Reaktion von Universalindikator auf Metallhydroxide
+                            </h1>
+                            <p className="text-xs md:text-base text-slate-600">
+                                Digitales Versuchsprotokoll & Simulation | Klasse 9 Chemie
+                            </p>
+                        </header>
+
+                        {/* Grid für Mobile: 1 Spalte, für Desktop: 2 Spalten */}
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-8">
+                            
+                            {/* Linke Spalte: Simulation */}
+                            <section className="space-y-4 md:space-y-6">
+                                <div className="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-slate-200">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
+                                            <FlaskConical className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+                                            1. Durchführung
+                                        </h2>
+                                        <button 
+                                            onClick={resetExperiment}
+                                            className="text-xs md:text-sm flex items-center gap-1 text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-full hover:bg-red-50 transition border border-red-100"
+                                        >
+                                            <RefreshCw className="w-3 h-3 md:w-4 md:h-4" /> Aufräumen und Abwaschen
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-blue-50/50 p-3 md:p-4 rounded-lg mb-4 md:mb-6 text-xs md:text-sm text-slate-700">
+                                        <ol className="list-decimal list-inside space-y-1">
+                                            <li>Wähle eine <strong>Chemikalie</strong> und fülle eine Mulde.</li>
+                                            <li>Wähle den <strong>Universalindikator</strong>.</li>
+                                            <li>Beobachte die Farbe und fülle die Tabelle aus.</li>
+                                        </ol>
+                                    </div>
+
+                                    {/* Indikator Auswahl */}
+                                    <div className="mb-6 md:mb-8 flex justify-center">
+                                         <button
+                                            onClick={() => handleToolClick('indicator', 'ui')}
+                                            className={`
+                                                flex items-center gap-2 md:gap-3 px-4 md:px-6 py-2 md:py-3 rounded-full border-2 transition-all shadow-sm w-full md:w-auto justify-center md:justify-start
+                                                ${selectedTool?.type === 'indicator' 
+                                                    ? 'border-amber-500 bg-amber-50 shadow-md ring-2 ring-amber-200 scale-105' 
+                                                    : 'border-slate-200 bg-white hover:border-amber-300 hover:bg-amber-50/30'}
+                                            `}
+                                        >
+                                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-red-500 via-yellow-400 to-blue-600 border border-slate-300 shadow-sm flex items-center justify-center shrink-0">
+                                                <Droplet className="w-4 h-4 md:w-5 md:h-5 text-white drop-shadow-md" />
+                                            </div>
+                                            <div className="text-left">
+                                                <div className="font-bold text-slate-800 text-sm md:text-base leading-none">Universalindikator</div>
+                                                <div className="text-[10px] md:text-xs text-slate-500">Zum Testen antippen</div>
+                                            </div>
+                                        </button>
+                                    </div>
+
+                                    {/* Chemikalien Regal - Scrollbar auf mobile wenn nötig */}
+                                    <div className="mb-6 md:mb-8 space-y-4 md:space-y-6 bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-200">
+                                        {Object.entries(groupedSubstances).map(([category, subs]) => (
+                                            <div key={category}>
+                                                <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-1">{category}</h3>
+                                                <div className="flex flex-wrap gap-2 md:gap-4 justify-start">
+                                                    {subs.map(sub => (
+                                                        <ChemicalBottle 
+                                                            key={sub.id}
+                                                            substance={sub}
+                                                            isSelected={selectedTool?.id === sub.id && selectedTool?.type === 'substance'}
+                                                            onClick={() => handleToolClick('substance', sub.id)}
+                                                            isUsed={wells.some(w => w.substanceId === sub.id)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Tüpfelplatte (6 Mulden) */}
+                                    <div className="bg-slate-200 rounded-xl p-4 md:p-6 shadow-inner border border-slate-300 relative">
+                                        <div className="absolute top-2 left-4 text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">Tüpfelplatte</div>
+                                        <div className="grid grid-cols-3 gap-4 md:gap-6 mt-6 justify-items-center">
+                                            {wells.map((well, idx) => (
+                                                <div key={idx} className="flex flex-col items-center gap-1">
+                                                    <button
+                                                        onClick={() => handleWellClick(idx)}
+                                                        className={`
+                                                            w-14 h-14 md:w-16 md:h-16 rounded-full shadow-inner border-2 border-slate-300/50 transition-colors duration-500
+                                                            flex items-center justify-center relative overflow-hidden group touch-manipulation
+                                                            ${getWellColor(well)}
+                                                            ${selectedTool ? 'cursor-pointer hover:ring-2 hover:ring-white/50' : 'cursor-default'}
+                                                        `}
+                                                    >
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
+                                                        
+                                                        {!well.substanceId && (
+                                                            <span className="text-slate-400/50 text-xs md:text-sm font-mono">{idx + 1}</span>
+                                                        )}
+                                                    </button>
+                                                    <div className="h-8 flex items-center justify-center w-full px-1">
+                                                        <span className="text-[9px] md:text-[10px] text-slate-600 font-medium text-center leading-tight">
+                                                            {well.substanceId 
+                                                                ? allSubstances.find(s => s.id === well.substanceId).bottleLabel
+                                                                : ''}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Rechte Spalte: Auswertung */}
+                            <section className="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-slate-200 flex flex-col h-full">
+                                <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 mb-4 md:mb-6">
+                                    <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
+                                    2. Auswertung
+                                </h2>
+
+                                <div className="mb-4 bg-yellow-50 text-yellow-800 text-xs p-3 rounded border border-yellow-200">
+                                    <strong>Hinweis:</strong> Protokolliere hier nur die Stoffe aus dem Arbeitsblatt.
+                                </div>
+
+                                {/* Tabelle - Horizontal scrollbar auf Mobile */}
+                                <div className="overflow-x-auto mb-6 md:mb-8 custom-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+                                    <table className="w-full text-xs md:text-sm text-left border-collapse min-w-[500px] md:min-w-[600px]">
+                                        <thead>
+                                            <tr className="bg-slate-100 text-slate-700">
+                                                <th className="p-2 border border-slate-200 rounded-tl-lg w-1/4">Stoffprobe</th>
+                                                <th className="p-2 border border-slate-200">Formel</th>
+                                                <th className="p-2 border border-slate-200">Kation</th>
+                                                <th className="p-2 border border-slate-200">Anion</th>
+                                                <th className="p-2 border border-slate-200 rounded-tr-lg">Farbe</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {tableSubstances.map((sub, idx) => (
+                                                <tr key={sub.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                                    <td className="p-2 font-medium text-slate-700">{sub.name}</td>
+                                                    
+                                                    {/* Formel Dropdown */}
+                                                    <td className="p-1 border border-slate-200">
+                                                        {showFeedback ? (
+                                                            <span className={`block p-1 text-center font-mono text-[10px] md:text-xs ${tableInputs[idx].formula === sub.formula ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                                                                {sub.formula}
+                                                            </span>
+                                                        ) : (
+                                                            <select 
+                                                                className="w-full p-1 bg-white border rounded text-[10px] md:text-xs focus:ring-1 focus:ring-blue-300 outline-none font-sans"
+                                                                value={tableInputs[idx].formula}
+                                                                onChange={(e) => {
+                                                                    const newInputs = [...tableInputs];
+                                                                    newInputs[idx].formula = e.target.value;
+                                                                    setTableInputs(newInputs);
+                                                                }}
+                                                            >
+                                                                <option value="">...</option>
+                                                                {formulaOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                            </select>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Kation Dropdown */}
+                                                    <td className="p-1 border border-slate-200">
+                                                        {showFeedback ? (
+                                                            <span className={`block p-1 text-center font-mono text-[10px] md:text-xs ${tableInputs[idx].cation === sub.cation ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                                                                {sub.cation}
+                                                            </span>
+                                                        ) : (
+                                                            <select 
+                                                                className="w-full p-1 bg-white border rounded text-[10px] md:text-xs focus:ring-1 focus:ring-blue-300 outline-none font-sans"
+                                                                value={tableInputs[idx].cation}
+                                                                onChange={(e) => {
+                                                                    const newInputs = [...tableInputs];
+                                                                    newInputs[idx].cation = e.target.value;
+                                                                    setTableInputs(newInputs);
+                                                                }}
+                                                            >
+                                                                <option value="">...</option>
+                                                                {cationOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                            </select>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Anion Dropdown */}
+                                                    <td className="p-1 border border-slate-200">
+                                                        {showFeedback ? (
+                                                            <span className={`block p-1 text-center font-mono text-[10px] md:text-xs ${tableInputs[idx].anion === sub.anion ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                                                                {sub.anion}
+                                                            </span>
+                                                        ) : (
+                                                            <select 
+                                                                className="w-full p-1 bg-white border rounded text-[10px] md:text-xs focus:ring-1 focus:ring-blue-300 outline-none font-sans"
+                                                                value={tableInputs[idx].anion}
+                                                                onChange={(e) => {
+                                                                    const newInputs = [...tableInputs];
+                                                                    newInputs[idx].anion = e.target.value;
+                                                                    setTableInputs(newInputs);
+                                                                }}
+                                                            >
+                                                                <option value="">...</option>
+                                                                {anionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                            </select>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Farbe Dropdown */}
+                                                    <td className="p-1 border border-slate-200">
+                                                        {showFeedback ? (
+                                                            <span className={`block p-1 text-center text-[10px] md:text-xs font-bold 
+                                                                ${sub.color.includes('green') ? 'text-green-600' : sub.color.includes('blue') ? 'text-blue-600' : sub.color.includes('orange') ? 'text-orange-500' : 'text-red-500'}
+                                                            `}>
+                                                                {sub.color.includes('green') ? 'Grün' : sub.color.includes('blue') ? 'Blau' : sub.color.includes('orange') ? 'Orange' : 'Rot'}
+                                                            </span>
+                                                        ) : (
+                                                            <select 
+                                                                className="w-full p-1 bg-white border rounded text-[10px] md:text-xs focus:ring-1 focus:ring-blue-300 outline-none"
+                                                                value={tableInputs[idx].color}
+                                                                onChange={(e) => {
+                                                                    const newInputs = [...tableInputs];
+                                                                    newInputs[idx].color = e.target.value;
+                                                                    setTableInputs(newInputs);
+                                                                }}
+                                                            >
+                                                                <option value="">...</option>
+                                                                <option value="rot">Rot</option>
+                                                                <option value="orange">Orange</option>
+                                                                <option value="grün">Grün</option>
+                                                                <option value="blau">Blau</option>
+                                                            </select>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Fragen */}
+                                <div className="space-y-4 md:space-y-6 flex-grow">
+                                    <div className="space-y-2">
+                                        <label className="font-medium text-slate-800 block text-sm">
+                                            1) Nenne das Ion, welches in allen Lösungen von Metallhydroxiden (Basen) vorhanden ist.
+                                        </label>
+                                        {showFeedback ? (
+                                            <div className="p-3 bg-green-50 border border-green-200 rounded text-green-800 text-sm">
+                                                <strong>Lösung:</strong> Das Hydroxid-Ion (OH⁻)
+                                            </div>
+                                        ) : (
+                                            <input 
+                                                type="text"
+                                                value={answers.q1}
+                                                onChange={(e) => setAnswers({...answers, q1: e.target.value})}
+                                                placeholder="Antwort hier eingeben..."
+                                                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-300 outline-none text-sm"
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="font-medium text-slate-800 block text-sm">
+                                            2) Gib den eindeutigen Zusammenhang zwischen Ionen in Lösung und Farbe des Universalindikators an.
+                                        </label>
+                                        {showFeedback ? (
+                                            <div className="p-3 bg-green-50 border border-green-200 rounded text-green-800 text-sm">
+                                                <strong>Lösung:</strong> 
+                                                <ul className="list-disc list-inside mt-1">
+                                                    <li>Blau: Hydroxid-Ionen (OH⁻) enthalten.</li>
+                                                    <li>Rot/Orange: Wasserstoff-Ionen (H⁺) enthalten.</li>
+                                                </ul>
+                                            </div>
+                                        ) : (
+                                            <textarea 
+                                                value={answers.q2}
+                                                onChange={(e) => setAnswers({...answers, q2: e.target.value})}
+                                                placeholder="Deine Beobachtung..."
+                                                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-300 outline-none h-20 text-sm"
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="font-medium text-slate-800 block text-sm">
+                                            3) Schlussfolgere eine Regel zum Identifizieren von Metallhydroxiden (Basen).
+                                        </label>
+                                        {showFeedback ? (
+                                            <div className="p-3 bg-green-50 border border-green-200 rounded text-green-800 text-sm">
+                                                <strong>Lösung:</strong> Eine Lösung von Metallhydroxiden enthält immer Hydroxid-Ionen (OH⁻). Diese färben Universalindikator blau.
+                                            </div>
+                                        ) : (
+                                            <textarea 
+                                                value={answers.q3}
+                                                onChange={(e) => setAnswers({...answers, q3: e.target.value})}
+                                                placeholder="Deine Regel..."
+                                                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-300 outline-none h-20 text-sm"
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="mt-6 md:mt-8 pt-6 border-t border-slate-100 flex justify-end gap-4">
+                                    <button 
+                                        onClick={() => setShowFeedback(!showFeedback)}
+                                        className={`
+                                            w-full md:w-auto px-6 py-3 rounded-lg font-bold transition-all text-sm
+                                            ${showFeedback 
+                                                ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' 
+                                                : 'bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-200'}
+                                        `}
+                                    >
+                                        {showFeedback ? 'Eingabe wiederholen' : 'Lösung anzeigen'}
+                                    </button>
+                                </div>
+
+                            </section>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
